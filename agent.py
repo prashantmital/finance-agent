@@ -1,3 +1,4 @@
+from typing import Any
 import json
 import os
 import re
@@ -26,7 +27,7 @@ class Agent(ABC):
         self.max_turns = max_turns
         self.instructions_prompt = instructions_prompt
 
-    def get_tool_definitions(self) -> list[str]:
+    def get_tool_definitions(self) -> list[dict[str, Any]]:
         tool_definitions = []
         for name, tool in self.tools.items():
             if hasattr(tool, "get_tool_json"):
@@ -255,8 +256,10 @@ class Agent(ABC):
                     final_answer_match.group(1).strip() if final_answer_match else (response_text or "")
                 )
 
+                # Extract sources if available
                 sources_text = sources_match.group(1) if sources_match else ""
 
+                # Combine answer and sources
                 final_answer = answer_text
                 if sources_text:
                     final_answer = f"{answer_text}\n\n{sources_text}"

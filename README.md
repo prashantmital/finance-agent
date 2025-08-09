@@ -117,6 +117,8 @@ The following models are supported by this repo:
 - openai/gpt-4.1-nano-2025-04-14
 - openai/gpt-4.1-2025-04-14
 - openai/o4-mini-2025-04-16
+- openai/o3-2025-04-16
+```
 ## OpenAI-specific behavior
 
 When using OpenAI models (e.g., `--model openai/gpt-4o-mini-2024-07-18`), this repo uses the OpenAI Responses API and enables OpenAI's built-in Web Search tool automatically. The Web Search tool is executed by OpenAI and does not require a SERP API key. Local execution of `google_web_search` is disabled in this mode.
@@ -128,9 +130,6 @@ python run_agent.py --questions "What was Apple's revenue in 2023?" --model open
 ```
 
 For non-OpenAI providers, the agent uses the existing tool execution loop and requires `SERP_API_KEY` to run `google_web_search`.
-
-- openai/o3-2025-04-16
-```
 
 ## Logs and Output
 
