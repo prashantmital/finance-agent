@@ -26,7 +26,9 @@ class Agent(ABC):
         self.max_turns = max_turns
         self.instructions_prompt = instructions_prompt
 
-    def get_tool_definitions(self) -> list[str]:
+    def get_tool_definitions(self) -> list[dict[str, any]]:
+        if self.llm.provider == "openai" and self.llm.model_name == "gpt-5":
+            return [{"type": "web_search"}]
         tool_definitions = []
         for name, tool in self.tools.items():
             if hasattr(tool, "get_tool_json"):
@@ -90,32 +92,40 @@ class Agent(ABC):
             turn_metadata["tokens"]["total_tokens"] = converted_usage["total_tokens"]
 
         if self.llm.provider != "anthropic":
-            if response is None or response.choices is None:
-                agent_logger.error(
-                    f"\033[1;31m[LLM STOPPED]\033[0m the agent stopped the conversation before reaching the maximum number of turns or a FINAL ANSWER was found."
-                )
-                return None, turn_metadata, False
-            if (
-                response.choices[0].message.content is None
-                and response.choices[0].message.tool_calls is None
-            ):
-                agent_logger.error(
-                    f"\033[1;31m[LLM STOPPED]\033[0m the agent stopped the conversation before reaching the maximum number of turns or a FINAL ANSWER was found."
-                )
-                return None, turn_metadata, False
+            if self.llm.provider == "openai" and self.llm.model_name == "gpt-5":
+                parsed_text = self.llm.parse_response(response)
+                if parsed_text:
+                    agent_logger.info(
+                        f"\033[1;33m[LLM THINKING]\033[0m {parsed_text}"
+                    )
+                messages.append({"role": "assistant", "content": parsed_text})
+            else:
+                if response is None or response.choices is None:
+                    agent_logger.error(
+                        f"\033[1;31m[LLM STOPPED]\033[0m the agent stopped the conversation before reaching the maximum number of turns or a FINAL ANSWER was found."
+                    )
+                    return None, turn_metadata, False
+                if (
+                    response.choices[0].message.content is None
+                    and response.choices[0].message.tool_calls is None
+                ):
+                    agent_logger.error(
+                        f"\033[1;31m[LLM STOPPED]\033[0m the agent stopped the conversation before reaching the maximum number of turns or a FINAL ANSWER was found."
+                    )
+                    return None, turn_metadata, False
 
-            if response.choices[0].message.content is not None:
-                agent_logger.info(
-                    f"\033[1;33m[LLM THINKING]\033[0m {response.choices[0].message.content}"
-                )
+                if response.choices[0].message.content is not None:
+                    agent_logger.info(
+                        f"\033[1;33m[LLM THINKING]\033[0m {response.choices[0].message.content}"
+                    )
 
-            if (
-                "command-a" in self.llm.model_name
-                and response.choices[0].message.content is None
-            ):
-                response.choices[0].message.content = ""
+                if (
+                    "command-a" in self.llm.model_name
+                    and response.choices[0].message.content is None
+                ):
+                    response.choices[0].message.content = ""
 
-            messages.append(response.choices[0].message)
+                messages.append(response.choices[0].message)
 
         elif self.llm.provider == "anthropic":
             if response.content is None:

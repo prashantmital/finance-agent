@@ -48,6 +48,12 @@ SEC_API_KEY=your_sec_api_key
 ```
 
 You can create a SERP API key [here](https://serpapi.com/), and an SEC API key [here](https://sec-api.io/).
+Note: SERP_API_KEY is only required when using non-gpt-5 models that rely on the local `google_web_search` tool. When using `openai/gpt-5`, web search is handled via the OpenAI Web Search tool through the Responses API, so SERP_API_KEY is not needed.
+
+Example using OpenAI Web Search (no SERP_API_KEY required):
+```bash
+python run_agent.py --questions "What was Apple's revenue in 2023?" --model openai/gpt-5
+```
 
 ## Running the Agent
 
@@ -76,6 +82,8 @@ python run_agent.py --question-file my_questions.txt
 ```
 
 For a full list of parameters, please run:
+
+When using the model `openai/gpt-5`, web search is provided by the OpenAI Web Search tool through the Responses API, and the agent automatically enables it. In this mode, the local `google_web_search` tool is not used.
 
 ```bash
 python run_agent.py --help

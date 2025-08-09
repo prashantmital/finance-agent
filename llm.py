@@ -189,6 +189,18 @@ class GeneralLLM(LLM):
                         max_tokens=8192,
                     )
 
+        if self.provider == "openai" and self.model_name == "gpt-5":
+            responses_messages = [
+                {"role": m["role"], "content": m["content"]} for m in messages
+            ]
+            return await self.client.responses.create(
+                model="gpt-5",
+                messages=responses_messages,
+                tools=tools,
+                temperature=self.temperature,
+                max_output_tokens=self.max_tokens,
+            )
+
         if self.model_name in [
             "o3-mini-2025-01-31",
             "o1-2024-12-17",
@@ -264,7 +276,6 @@ class GeneralLLM(LLM):
     def get_tool_calls(self, response: dict[str, any]) -> list[dict[str, any]]:
         tools = []
 
-        # Handle Anthropic response format
         if self.provider == "anthropic":
             for content in response.content:
                 if content.type == "tool_use":
@@ -277,7 +288,9 @@ class GeneralLLM(LLM):
                     )
             return tools
 
-        # Handle OpenAI response format
+        if self.provider == "openai" and self.model_name == "gpt-5":
+            return []
+
         for choice in response.choices:
             if choice.message.tool_calls:
                 for tool_call in choice.message.tool_calls:
@@ -291,14 +304,15 @@ class GeneralLLM(LLM):
         return tools
 
     def parse_response(self, response: dict[str, any]) -> str:
-        # Handle Anthropic response format
         if self.provider == "anthropic":
             for content in response.content:
                 if content.type == "text":
                     return content.text
-            return ""  # Return empty string if no text content found
+            return ""
 
-        # Handle OpenAI response format
+        if self.provider == "openai" and self.model_name == "gpt-5":
+            return getattr(response, "output_text", "")
+
         return response.choices[0].message.content
 
     def append_tool_result(
@@ -339,9 +353,14 @@ class GeneralLLM(LLM):
                 "completion_tokens": usage.output_tokens,
                 "total_tokens": usage.input_tokens + usage.output_tokens,
             }
-        else:
+        if self.provider == "openai" and self.model_name == "gpt-5":
             return {
-                "prompt_tokens": usage.prompt_tokens,
-                "completion_tokens": usage.completion_tokens,
-                "total_tokens": usage.total_tokens,
+                "prompt_tokens": getattr(usage, "input_tokens", 0),
+                "completion_tokens": getattr(usage, "output_tokens", 0),
+                "total_tokens": getattr(usage, "total_tokens", 0),
             }
+        return {
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens,
+        }
