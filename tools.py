@@ -164,8 +164,7 @@ class GoogleWebSearch(Tool):
 
     def __init__(
         self,
-        top_n_results: int = 10,
-        serpapi_api_key: str = os.getenv("SERP_API_KEY"),
+        openai_api_key: str = os.getenv("OPENAI_API_KEY"),
         *args,
         **kwargs,
     ):
@@ -177,40 +176,78 @@ class GoogleWebSearch(Tool):
             *args,
             **kwargs,
         )
-        self.top_n_results = top_n_results
-        self.serpapi_api_key = serpapi_api_key
+        self.openai_api_key = openai_api_key
+        self.previous_response_id = None
 
-        if serpapi_api_key is None:
-            raise Exception("SERP_API_KEY is not set")
+        if openai_api_key is None:
+            raise Exception("OPENAI_API_KEY is not set")
+
+        from openai import AsyncOpenAI
+        self.client = AsyncOpenAI(api_key=openai_api_key)
 
     @retry_on_429
-    async def _execute_search(self, search_query: str) -> list[str]:
+    async def _execute_search(self, search_query: str) -> list[dict]:
         """
-        Search the web for information using Google Search.
+        Search the web for information using OpenAI Web Search API.
 
         Args:
             search_query (str): The query to search for
 
         Returns:
-            list[str]: A list of results from Google Search
+            list[dict]: A list of search results formatted similar to SerpAPI organic_results
         """
-        params = {
-            "api_key": self.serpapi_api_key,
-            "engine": "google",
-            "q": search_query,
-            "num": self.top_n_results,
-        }
+        try:
+            response_params = {
+                "model": "gpt-5",
+                "tools": [{"type": "web_search_preview"}],
+                "input": f"Search for: {search_query}",
+            }
+            
+            if self.previous_response_id:
+                response_params["previous_response_id"] = self.previous_response_id
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                "https://serpapi.com/search.json", params=params
-            ) as response:
-                response.raise_for_status()  # This will raise ClientResponseError
-                results = await response.json()
+            response = await self.client.responses.create(**response_params)
+            
+            self.previous_response_id = response.id
 
-        return results.get("organic_results", [])
+            search_results = []
+            
+            if hasattr(response, 'output_text') and response.output_text:
+                search_results.append({
+                    "title": "Web Search Results",
+                    "link": "",
+                    "snippet": response.output_text,
+                    "position": 1
+                })
+            
+            if hasattr(response, 'web_search_call') and response.web_search_call:
+                web_search_data = response.web_search_call
+                if hasattr(web_search_data, 'search') and web_search_data.search:
+                    search_info = web_search_data.search
+                    if hasattr(search_info, 'search_query') and search_info.search_query:
+                        for idx, result in enumerate(search_info.search_query):
+                            search_results.append({
+                                "title": getattr(result, 'title', f"Search Result {idx + 1}"),
+                                "link": getattr(result, 'url', ''),
+                                "snippet": getattr(result, 'snippet', ''),
+                                "position": idx + 1
+                            })
+            
+            if not search_results:
+                search_results.append({
+                    "title": "Search Query",
+                    "link": "",
+                    "snippet": f"Searched for: {search_query}",
+                    "position": 1
+                })
 
-    async def call_tool(self, arguments: dict) -> list[str]:
+            return search_results
+
+        except Exception as e:
+            tool_logger.error(f"OpenAI Web Search error: {e}")
+            raise
+
+    async def call_tool(self, arguments: dict) -> list[dict]:
         results = await self._execute_search(**arguments)
         return results
 
