@@ -14,15 +14,19 @@ async def get_agent(model_name: str, parameters: dict, *args, **kwargs):
         "edgar_search": EDGARSearch,
     }
 
+    provider, model_key = model_name.split("/", 1)
+
     selected_tools = {}
-    for tool in parameters.get("tools", available_tools.keys()):
+    requested = parameters.get("tools", available_tools.keys())
+    for tool in requested:
         if tool not in available_tools:
             raise Exception(
                 f"Tool {tool} not found in tools. Available tools: {available_tools.keys()}"
             )
+        if provider == "openai" and tool == "google_web_search":
+            continue
         selected_tools[tool] = available_tools[tool]()
 
-    provider, model_key = model_name.split("/", 1)
     llm = GeneralLLM(
         provider=provider,
         model_name=model_key,

@@ -37,6 +37,8 @@ class Agent(ABC):
                         and not "deepseek" in self.llm.model_name,
                     )
                 )
+        if self.llm.provider == "openai":
+            tool_definitions.append({"type": "web_search"})
         return tool_definitions
 
     async def _process_turn(self, messages, turn_count, data_storage, metadata):
@@ -89,7 +91,14 @@ class Agent(ABC):
             ]
             turn_metadata["tokens"]["total_tokens"] = converted_usage["total_tokens"]
 
-        if self.llm.provider != "anthropic":
+        if self.llm.provider == "openai":
+            response_text = self.llm.parse_response(response)
+            if isinstance(response_text, str) and len(response_text) > 0:
+                agent_logger.info(
+                    f"\033[1;33m[LLM THINKING]\033[0m {response_text}"
+                )
+                messages.append({"role": "assistant", "content": response_text})
+        elif self.llm.provider != "anthropic":
             if response is None or response.choices is None:
                 agent_logger.error(
                     f"\033[1;31m[LLM STOPPED]\033[0m the agent stopped the conversation before reaching the maximum number of turns or a FINAL ANSWER was found."
@@ -147,6 +156,12 @@ class Agent(ABC):
                 arguments = tool_call["arguments"]
                 tool_content = tool_call["tool_content"]
 
+                if (
+                    self.llm.provider == "openai"
+                    and tool_name in ("web_search", "web_search.results", None)
+                ):
+                    continue
+
                 # Track tool call in turn metadata
                 tool_call_metadata = {
                     "tool_name": tool_name,
@@ -197,7 +212,6 @@ class Agent(ABC):
                     tool_result = await self.tools[tool_name](arguments)
 
                 if tool_result["success"]:
-                    # Add tool result to messages
                     tool_call_metadata["success"] = True
                 else:
                     tool_call_metadata["error"] = tool_result["result"]
@@ -207,37 +221,42 @@ class Agent(ABC):
                     messages, tool_content, tool_result["result"]
                 )
 
-                # Add tool call metadata to turn
                 turn_metadata["tool_calls"].append(tool_call_metadata)
 
         else:
             # Get text response when there are no tool calls
             response_text = self.llm.parse_response(response)
 
+            is_final = False
+            if self.llm.provider == "openai":
+                try:
+                    for item in getattr(response, "output", []) or []:
+                        if getattr(item, "type", None) == "final":
+                            is_final = True
+                            break
+                except Exception:
+                    pass
+
             # Use regex to check for "FINAL ANSWER:" pattern
             final_answer_pattern = re.compile(r"FINAL ANSWER:", re.IGNORECASE)
 
-            if isinstance(response_text, str) and final_answer_pattern.search(
-                response_text
-            ):
+            if is_final or (isinstance(response_text, str) and final_answer_pattern.search(response_text)):
                 # Use regex to extract the content after "FINAL ANSWER:"
                 final_answer_match = re.search(
                     r"FINAL ANSWER:(.*?)(?:\{\"sources\"|\Z)",
-                    response_text,
+                    response_text if isinstance(response_text, str) else "",
                     re.DOTALL,
                 )
                 sources_match = re.search(
-                    r"(\{\"sources\".*\})", response_text, re.DOTALL
+                    r"(\{\"sources\".*\})", response_text if isinstance(response_text, str) else "", re.DOTALL
                 )
 
                 answer_text = (
-                    final_answer_match.group(1).strip() if final_answer_match else ""
+                    final_answer_match.group(1).strip() if final_answer_match else (response_text or "")
                 )
 
-                # Extract sources if available
                 sources_text = sources_match.group(1) if sources_match else ""
 
-                # Combine answer and sources
                 final_answer = answer_text
                 if sources_text:
                     final_answer = f"{answer_text}\n\n{sources_text}"
