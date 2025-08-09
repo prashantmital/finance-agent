@@ -9,6 +9,7 @@ from anthropic.types.tool_use_block import ToolUseBlock
 from bs4 import BeautifulSoup
 from llm import GeneralLLM
 from logger import get_logger
+from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageToolCall
 
 tool_logger = get_logger(__name__)
@@ -165,7 +166,6 @@ class GoogleWebSearch(Tool):
     def __init__(
         self,
         top_n_results: int = 10,
-        serpapi_api_key: str = os.getenv("SERP_API_KEY"),
         *args,
         **kwargs,
     ):
@@ -178,39 +178,40 @@ class GoogleWebSearch(Tool):
             **kwargs,
         )
         self.top_n_results = top_n_results
-        self.serpapi_api_key = serpapi_api_key
-
-        if serpapi_api_key is None:
-            raise Exception("SERP_API_KEY is not set")
+        self._openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self._previous_response_id = None
 
     @retry_on_429
-    async def _execute_search(self, search_query: str) -> list[str]:
-        """
-        Search the web for information using Google Search.
+    async def _execute_search(self, search_query: str) -> list[dict]:
+        prompt = (
+            f"Using web search, find the top {self.top_n_results} relevant results for: {search_query}. "
+            "Return a strict JSON array where each item has keys: title, url, snippet."
+        )
+        response = await self._openai_client.responses.create(
+            model="gpt-5",
+            tools=[{"type": "web_search_preview"}],
+            tool_choice={"type": "web_search_preview"},
+            input=prompt,
+            previous_response_id=self._previous_response_id,
+        )
+        self._previous_response_id = getattr(response, "id", None)
+        output_text = getattr(response, "output_text", None)
+        results_list: list[dict] = []
+        if output_text:
+            try:
+                parsed = json.loads(output_text)
+                if isinstance(parsed, list):
+                    results_list = parsed
+            except Exception:
+                pass
+        if not results_list:
+            urls = re.findall(r"https?://[^\s)\"'>]+", output_text or "")
+            results_list = [
+                {"title": "", "url": u, "snippet": ""} for u in urls[: self.top_n_results]
+            ]
+        return results_list
 
-        Args:
-            search_query (str): The query to search for
-
-        Returns:
-            list[str]: A list of results from Google Search
-        """
-        params = {
-            "api_key": self.serpapi_api_key,
-            "engine": "google",
-            "q": search_query,
-            "num": self.top_n_results,
-        }
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                "https://serpapi.com/search.json", params=params
-            ) as response:
-                response.raise_for_status()  # This will raise ClientResponseError
-                results = await response.json()
-
-        return results.get("organic_results", [])
-
-    async def call_tool(self, arguments: dict) -> list[str]:
+    async def call_tool(self, arguments: dict) -> list[dict]:
         results = await self._execute_search(**arguments)
         return results
 

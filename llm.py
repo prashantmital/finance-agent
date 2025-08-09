@@ -95,6 +95,8 @@ class GeneralLLM(LLM):
         super().__init__(provider=provider, model_name=model_name)
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.uses_responses_api = provider == "openai" and model_name == "gpt-5"
+        self._previous_response_id = None
         if provider == "anthropic":
             params = self.get_provider_args()
             self.anthropic_client = AsyncAnthropic(api_key=params["api_key"])
@@ -152,6 +154,19 @@ class GeneralLLM(LLM):
     async def chat(
         self, messages: list[dict[str, any]], tools: list[dict[str, any]] = []
     ) -> ChatCompletion:
+        if self.uses_responses_api:
+            input_text = "\n".join(
+                [f"{m.get('role', 'user')}: {m.get('content','')}" for m in messages]
+            )
+            resp = await self.client.responses.create(
+                model="gpt-5",
+                tools=[{"type": "web_search_preview"}],
+                input=input_text,
+                previous_response_id=self._previous_response_id,
+            )
+            self._previous_response_id = getattr(resp, "id", None)
+            return resp
+
         if self.provider == "anthropic":
             if self.model_name == "claude-3-7-sonnet-20250219-thinking":
                 model_name = "claude-3-7-sonnet-20250219"
@@ -262,9 +277,10 @@ class GeneralLLM(LLM):
             )
 
     def get_tool_calls(self, response: dict[str, any]) -> list[dict[str, any]]:
+        if getattr(self, "uses_responses_api", False):
+            return []
         tools = []
 
-        # Handle Anthropic response format
         if self.provider == "anthropic":
             for content in response.content:
                 if content.type == "tool_use":
@@ -277,7 +293,6 @@ class GeneralLLM(LLM):
                     )
             return tools
 
-        # Handle OpenAI response format
         for choice in response.choices:
             if choice.message.tool_calls:
                 for tool_call in choice.message.tool_calls:
@@ -291,14 +306,14 @@ class GeneralLLM(LLM):
         return tools
 
     def parse_response(self, response: dict[str, any]) -> str:
-        # Handle Anthropic response format
+        if getattr(self, "uses_responses_api", False):
+            return getattr(response, "output_text", "")
         if self.provider == "anthropic":
             for content in response.content:
                 if content.type == "text":
                     return content.text
-            return ""  # Return empty string if no text content found
+            return ""
 
-        # Handle OpenAI response format
         return response.choices[0].message.content
 
     def append_tool_result(

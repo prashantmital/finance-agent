@@ -43,11 +43,10 @@ GROK_API_KEY=your_grok_api_key
 COHERE_API_KEY=cohere_api_key
 
 # Tool API Keys
-SERP_API_KEY=your_serpapi_key
 SEC_API_KEY=your_sec_api_key
 ```
 
-You can create a SERP API key [here](https://serpapi.com/), and an SEC API key [here](https://sec-api.io/).
+For SEC filings, you can create an SEC API key [here](https://sec-api.io/).
 
 ## Running the Agent
 
@@ -55,6 +54,11 @@ To experiment with the agent, you can run the following command:
 
 ```bash
 python run_agent.py --questions "What was Apple's revenue in 2023?"
+```
+
+To use OpenAI Web Search via the Responses API, run with gpt-5:
+```bash
+python run_agent.py --questions "What was Apple's revenue in 2023?" --model openai/gpt-5
 ```
 
 You can specify multiple questions at once:
@@ -85,7 +89,7 @@ The default configuration is the one we used to run the benchmark.
 
 ## Available Tools
 
-- `google_web_search`: Search the web for information
+- `google_web_search`: Search the web for information (uses OpenAI Web Search via Responses API when available)
 - `edgar_search`: Search the SEC's EDGAR database for filings
 - `parse_html_page`: Parse and extract content from web pages
 - `retrieve_information`: Access stored information from previous steps
@@ -95,6 +99,7 @@ The default configuration is the one we used to run the benchmark.
 The following models are supported by this repo:
 
 ```
+- openai/gpt-5
 - openai/gpt-4o-2024-08-06
 - openai/gpt-4o-mini-2024-07-18
 - openai/o3-mini-2025-01-31

@@ -89,7 +89,13 @@ class Agent(ABC):
             ]
             turn_metadata["tokens"]["total_tokens"] = converted_usage["total_tokens"]
 
-        if self.llm.provider != "anthropic":
+        if getattr(self.llm, "uses_responses_api", False):
+            response_text = self.llm.parse_response(response)
+            if isinstance(response_text, str) and response_text.strip():
+                agent_logger.info(
+                    f"\033[1;33m[LLM THINKING]\033[0m {response_text.strip()[:2000]}"
+                )
+        elif self.llm.provider != "anthropic":
             if response is None or response.choices is None:
                 agent_logger.error(
                     f"\033[1;31m[LLM STOPPED]\033[0m the agent stopped the conversation before reaching the maximum number of turns or a FINAL ANSWER was found."
