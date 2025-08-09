@@ -1,6 +1,7 @@
 import json
 import os
 from abc import ABC, abstractmethod
+from typing import Any
 
 import backoff
 from anthropic import AsyncAnthropic
@@ -56,31 +57,31 @@ class LLM(ABC):
         )
         # self.provider = provider if provider == "anthropic" else "openai"
 
-    def get_provider_args(self) -> dict[str, any]:
+    def get_provider_args(self) -> dict[str, Any]:
         params = provider_args[self.provider]
         return params
 
-    def chat(self, conversation: list[dict[str, any]]) -> str:
+    def chat(self, conversation: list[dict[str, Any]]) -> str:
         pass
 
     @abstractmethod
-    def parse_response(self, response: dict[str, any]) -> str:
+    def parse_response(self, response: dict[str, Any]) -> str:
         pass
 
     @abstractmethod
     def append_tool_result(
         self,
-        messages: list[dict[str, any]],
+        messages: list[dict[str, Any]],
         tool_content: any,
         tool_result: str,
-    ) -> list[dict[str, any]]:
+    ) -> list[dict[str, Any]]:
         pass
 
     @abstractmethod
-    def get_tool_calls(self, response: dict[str, any]) -> list[dict[str, any]]:
+    def get_tool_calls(self, response: dict[str, Any]) -> list[dict[str, Any]]:
         pass
 
-    def convert_usage(self, usage: dict[str, any]) -> dict[str, any]:
+    def convert_usage(self, usage: dict[str, Any]) -> dict[str, Any]:
         pass
 
 
@@ -101,8 +102,8 @@ class GeneralLLM(LLM):
 
     async def safe_chat(
         self,
-        messages: list[dict[str, any]],
-        tools: list[dict[str, any]] = [],
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] = [],
         ignore_token_error: bool = False,
     ) -> ChatCompletion:
         while True:
@@ -141,7 +142,7 @@ class GeneralLLM(LLM):
         ),  # Use the shared function
     )
     async def _retryable_chat(
-        self, messages: list[dict[str, any]], tools: list[dict[str, any]]
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
     ) -> ChatCompletion:
         try:
             return await self.chat(messages, tools)
@@ -150,7 +151,7 @@ class GeneralLLM(LLM):
             raise
 
     async def chat(
-        self, messages: list[dict[str, any]], tools: list[dict[str, any]] = []
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] = []
     ) -> ChatCompletion:
         if self.provider == "anthropic":
             if self.model_name == "claude-3-7-sonnet-20250219-thinking":
@@ -273,7 +274,7 @@ class GeneralLLM(LLM):
                 max_tokens=self.max_tokens,
             )
 
-    def get_tool_calls(self, response: dict[str, any]) -> list[dict[str, any]]:
+    def get_tool_calls(self, response: dict[str, Any]) -> list[dict[str, Any]]:
         tools = []
 
         if self.provider == "anthropic":
@@ -303,7 +304,7 @@ class GeneralLLM(LLM):
                     )
         return tools
 
-    def parse_response(self, response: dict[str, any]) -> str:
+    def parse_response(self, response: dict[str, Any]) -> str:
         if self.provider == "anthropic":
             for content in response.content:
                 if content.type == "text":
@@ -317,10 +318,10 @@ class GeneralLLM(LLM):
 
     def append_tool_result(
         self,
-        messages: list[dict[str, any]],
+        messages: list[dict[str, Any]],
         tool_content: any,
         tool_result: str,
-    ) -> list[dict[str, any]]:
+    ) -> list[dict[str, Any]]:
         # Handle Anthropic response format
         if self.provider == "anthropic":
             messages.append(
@@ -346,7 +347,7 @@ class GeneralLLM(LLM):
             )
         return messages
 
-    def convert_usage(self, usage: dict[str, any]) -> dict[str, any]:
+    def convert_usage(self, usage: dict[str, Any]) -> dict[str, Any]:
         if self.provider == "anthropic":
             return {
                 "prompt_tokens": usage.input_tokens,

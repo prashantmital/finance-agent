@@ -4,6 +4,7 @@ import re
 import uuid
 from abc import ABC
 from datetime import datetime
+from typing import Any
 
 from llm import GeneralLLM
 from logger import get_logger
@@ -26,7 +27,7 @@ class Agent(ABC):
         self.max_turns = max_turns
         self.instructions_prompt = instructions_prompt
 
-    def get_tool_definitions(self) -> list[dict[str, any]]:
+    def get_tool_definitions(self) -> list[dict[str, Any]]:
         if self.llm.provider == "openai" and self.llm.model_name == "gpt-5":
             return [{"type": "web_search"}]
         tool_definitions = []
