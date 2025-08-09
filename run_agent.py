@@ -94,13 +94,13 @@ def main():
         type=str,
         nargs="+",
         default=[
-            "google_web_search",
+            "web_search_preview",
             "retrieve_information",
             "parse_html_page",
             "edgar_search",
         ],
         choices=[
-            "google_web_search",
+            "web_search_preview",
             "retrieve_information",
             "parse_html_page",
             "edgar_search",
