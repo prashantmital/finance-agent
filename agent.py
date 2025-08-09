@@ -214,7 +214,26 @@ class Agent(ABC):
             # Get text response when there are no tool calls
             response_text = self.llm.parse_response(response)
 
-            # Use regex to check for "FINAL ANSWER:" pattern
+            if (self.llm.provider == "openai" and 
+                hasattr(response, 'messages') and 
+                any(hasattr(msg, 'type') and msg.type == "final" for msg in response.messages)):
+                
+                # Extract final message content
+                final_message = next(msg for msg in response.messages if hasattr(msg, 'type') and msg.type == "final")
+                final_answer = final_message.content
+                
+                agent_logger.info(f"\033[1;32m[FINAL ANSWER]\033[0m {final_answer}")
+                
+                # Finalize turn metadata
+                turn_end_time = datetime.now()
+                turn_metadata["end_time"] = turn_end_time.isoformat()
+                turn_metadata["duration_seconds"] = (
+                    turn_end_time - turn_start_time
+                ).total_seconds()
+                
+                return final_answer, turn_metadata, False
+            
+            # Use regex to check for "FINAL ANSWER:" pattern (for non-OpenAI models)
             final_answer_pattern = re.compile(r"FINAL ANSWER:", re.IGNORECASE)
 
             if isinstance(response_text, str) and final_answer_pattern.search(

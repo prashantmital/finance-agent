@@ -152,6 +152,23 @@ class GeneralLLM(LLM):
     async def chat(
         self, messages: list[dict[str, any]], tools: list[dict[str, any]] = []
     ) -> ChatCompletion:
+        if self.provider == "openai":
+            if len(tools) > 0:
+                return await self.client.responses.create(
+                    model=self.model_name,
+                    messages=messages,
+                    temperature=self.temperature,
+                    tools=tools,
+                    max_tokens=self.max_tokens,
+                )
+            else:
+                return await self.client.responses.create(
+                    model=self.model_name,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                )
+        
         if self.provider == "anthropic":
             if self.model_name == "claude-3-7-sonnet-20250219-thinking":
                 model_name = "claude-3-7-sonnet-20250219"
@@ -298,7 +315,15 @@ class GeneralLLM(LLM):
                     return content.text
             return ""  # Return empty string if no text content found
 
-        # Handle OpenAI response format
+        # Handle OpenAI Responses API format
+        if self.provider == "openai" and hasattr(response, 'messages'):
+            for message in response.messages:
+                if hasattr(message, 'type') and message.type == "final":
+                    return message.content
+                elif hasattr(message, 'content') and message.content:
+                    return message.content
+            return ""
+
         return response.choices[0].message.content
 
     def append_tool_result(

@@ -481,6 +481,29 @@ class ParseHtmlPage(Tool):
         return tool_result
 
 
+class OpenAIWebSearch(Tool):
+    name: str = "web_search_preview"
+    description: str = "Search the web for information using OpenAI's built-in web search"
+    input_arguments: dict = {
+        "query": {
+            "type": "string",
+            "description": "The search query"
+        }
+    }
+    required_arguments: list[str] = ["query"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def get_tool_json(self, provider: str = "openai", strict: bool = True) -> dict:
+        return {
+            "type": "web_search_preview"
+        }
+
+    async def call_tool(self, arguments: dict) -> list[str]:
+        raise NotImplementedError("OpenAI Web Search is handled automatically by Responses API")
+
+
 class RetrieveInformation(Tool):
     name: str = "retrieve_information"
     description: str = (
