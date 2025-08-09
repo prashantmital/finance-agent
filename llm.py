@@ -72,7 +72,7 @@ class LLM(ABC):
     def append_tool_result(
         self,
         messages: list[dict[str, Any]],
-        tool_content: any,
+        tool_content: Any,
         tool_result: str,
     ) -> list[dict[str, Any]]:
         pass
@@ -319,7 +319,7 @@ class GeneralLLM(LLM):
     def append_tool_result(
         self,
         messages: list[dict[str, Any]],
-        tool_content: any,
+        tool_content: Any,
         tool_result: str,
     ) -> list[dict[str, Any]]:
         # Handle Anthropic response format
