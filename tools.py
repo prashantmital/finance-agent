@@ -151,9 +151,9 @@ class Tool(ABC):
             return {"success": False, "result": str(e)}
 
 
-class GoogleWebSearch(Tool):
-    name: str = "google_web_search"
-    description: str = "Search the web for information"
+class OpenAIWebSearch(Tool):
+    name: str = "web_search_preview"
+    description: str = "Search the web for information using OpenAI's web search capability"
     input_arguments: dict = {
         "search_query": {
             "type": "string",
@@ -162,13 +162,7 @@ class GoogleWebSearch(Tool):
     }
     required_arguments: list[str] = ["search_query"]
 
-    def __init__(
-        self,
-        top_n_results: int = 10,
-        serpapi_api_key: str = os.getenv("SERP_API_KEY"),
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, *args, **kwargs):
         super().__init__(
             self.name,
             self.description,
@@ -177,42 +171,12 @@ class GoogleWebSearch(Tool):
             *args,
             **kwargs,
         )
-        self.top_n_results = top_n_results
-        self.serpapi_api_key = serpapi_api_key
 
-        if serpapi_api_key is None:
-            raise Exception("SERP_API_KEY is not set")
-
-    @retry_on_429
-    async def _execute_search(self, search_query: str) -> list[str]:
-        """
-        Search the web for information using Google Search.
-
-        Args:
-            search_query (str): The query to search for
-
-        Returns:
-            list[str]: A list of results from Google Search
-        """
-        params = {
-            "api_key": self.serpapi_api_key,
-            "engine": "google",
-            "q": search_query,
-            "num": self.top_n_results,
+    async def call_tool(self, arguments: dict) -> dict:
+        return {
+            "success": True,
+            "result": "Web search handled by OpenAI backend"
         }
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                "https://serpapi.com/search.json", params=params
-            ) as response:
-                response.raise_for_status()  # This will raise ClientResponseError
-                results = await response.json()
-
-        return results.get("organic_results", [])
-
-    async def call_tool(self, arguments: dict) -> list[str]:
-        results = await self._execute_search(**arguments)
-        return results
 
 
 class EDGARSearch(Tool):

@@ -43,11 +43,10 @@ GROK_API_KEY=your_grok_api_key
 COHERE_API_KEY=cohere_api_key
 
 # Tool API Keys
-SERP_API_KEY=your_serpapi_key
 SEC_API_KEY=your_sec_api_key
 ```
 
-You can create a SERP API key [here](https://serpapi.com/), and an SEC API key [here](https://sec-api.io/).
+You can create an SEC API key [here](https://sec-api.io/).
 
 ## Running the Agent
 
@@ -85,7 +84,7 @@ The default configuration is the one we used to run the benchmark.
 
 ## Available Tools
 
-- `google_web_search`: Search the web for information
+- `web_search_preview`: Search the web for information using OpenAI's web search capability
 - `edgar_search`: Search the SEC's EDGAR database for filings
 - `parse_html_page`: Parse and extract content from web pages
 - `retrieve_information`: Access stored information from previous steps

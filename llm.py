@@ -152,6 +152,10 @@ class GeneralLLM(LLM):
     async def chat(
         self, messages: list[dict[str, any]], tools: list[dict[str, any]] = []
     ) -> ChatCompletion:
+        has_web_search = any(tool.get("type") == "web_search_preview" for tool in tools)
+        if self.model_name == "gpt-5" and has_web_search:
+            return await self._responses_api_chat(messages, tools)
+        
         if self.provider == "anthropic":
             if self.model_name == "claude-3-7-sonnet-20250219-thinking":
                 model_name = "claude-3-7-sonnet-20250219"
@@ -331,6 +335,49 @@ class GeneralLLM(LLM):
                 }
             )
         return messages
+
+    async def _responses_api_chat(
+        self, messages: list[dict[str, any]], tools: list[dict[str, any]]
+    ) -> ChatCompletion:
+        input_text = self._convert_messages_to_input(messages)
+        
+        response = await self.client.responses.create(
+            model=self.model_name,
+            tools=tools,
+            input=input_text,
+        )
+        
+        return self._convert_responses_to_chat_completion(response)
+
+    def _convert_messages_to_input(self, messages: list[dict[str, any]]) -> str:
+        input_parts = []
+        for message in messages:
+            role = message.get("role", "")
+            content = message.get("content", "")
+            if role == "user":
+                input_parts.append(f"User: {content}")
+            elif role == "assistant":
+                input_parts.append(f"Assistant: {content}")
+            elif role == "system":
+                input_parts.append(f"System: {content}")
+        return "\n\n".join(input_parts)
+
+    def _convert_responses_to_chat_completion(self, response) -> ChatCompletion:
+        output_text = getattr(response, 'output_text', '')
+        
+        class MockChoice:
+            def __init__(self, content):
+                self.message = type('Message', (), {
+                    'content': content,
+                    'tool_calls': None
+                })()
+        
+        class MockCompletion:
+            def __init__(self, content):
+                self.choices = [MockChoice(content)]
+                self.usage = None
+        
+        return MockCompletion(output_text)
 
     def convert_usage(self, usage: dict[str, any]) -> dict[str, any]:
         if self.provider == "anthropic":

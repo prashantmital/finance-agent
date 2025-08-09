@@ -2,13 +2,13 @@ import traceback
 
 from agent import Agent
 from llm import GeneralLLM
-from tools import EDGARSearch, GoogleWebSearch, ParseHtmlPage, RetrieveInformation
+from tools import EDGARSearch, OpenAIWebSearch, ParseHtmlPage, RetrieveInformation
 
 
 async def get_agent(model_name: str, parameters: dict, *args, **kwargs):
     max_turns = parameters.get("max_turns", 50)
     available_tools = {
-        "google_web_search": GoogleWebSearch,
+        "web_search_preview": OpenAIWebSearch,
         "retrieve_information": RetrieveInformation,
         "parse_html_page": ParseHtmlPage,
         "edgar_search": EDGARSearch,

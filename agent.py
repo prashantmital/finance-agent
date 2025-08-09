@@ -29,7 +29,9 @@ class Agent(ABC):
     def get_tool_definitions(self) -> list[str]:
         tool_definitions = []
         for name, tool in self.tools.items():
-            if hasattr(tool, "get_tool_json"):
+            if name == "web_search_preview" and self.llm.model_name == "gpt-5":
+                tool_definitions.append({"type": "web_search_preview"})
+            elif hasattr(tool, "get_tool_json"):
                 tool_definitions.append(
                     tool.get_tool_json(
                         provider=self.llm.provider,
